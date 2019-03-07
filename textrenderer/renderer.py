@@ -115,6 +115,7 @@ class Renderer(object):
             word_img = self.apply_sharp(word_img)
             self.dmsg("After sharp")
 
+        # word_img = cv2.resize(word_img, None, fx=0.5, fy=0.5)
         return word_img, word
 
     def dmsg(self, msg):

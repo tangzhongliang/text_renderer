@@ -21,12 +21,29 @@ from textrenderer.corpus.corpus_utils import corpus_factory
 from textrenderer.renderer import Renderer
 from tenacity import retry
 
+
+def read_charset(charset_fp):
+    alphabet = []
+    # 第0个元素是预留id，在CTC中用来分割字符。它不对应有意义的字符
+    with open(charset_fp) as fp:
+        for line in fp:
+            alphabet.append(line.rstrip('\n'))
+    print('Alphabet size: %d' % len(alphabet))
+    inv_alph_dict = {_char: idx for idx, _char in enumerate(alphabet)}
+    inv_alph_dict[' '] = inv_alph_dict['<space>']  # 对应空格
+    return alphabet, inv_alph_dict
+
+
 lock = mp.Lock()
 counter = mp.Value('i', 0)
 STOP_TOKEN = 'kill'
 
 flags = parse_args()
 cfg = load_config(flags.config_file)
+
+ALPHABET, INV_ALPH_DICT = None, None
+if flags.charset_file and os.path.exists(flags.charset_file):
+    ALPHABET, INV_ALPH_DICT = read_charset(flags.charset_file)
 
 fonts = font_utils.get_font_paths_from_list(flags.fonts_list)
 bgs = utils.load_bgs(flags.bg_dir)
@@ -72,16 +89,21 @@ def gen_img_retry(renderer, img_index):
 
 
 def generate_img(img_index, q=None):
-    global flags, lock, counter
+    global flags, lock, counter, INV_ALPH_DICT
     # Make sure different process has different random seed
     np.random.seed()
 
     im, word = gen_img_retry(renderer, img_index)
+    if INV_ALPH_DICT:
+        try:
+            word = ' '.join([str(INV_ALPH_DICT[c]) for c in word])
+        except KeyError:
+            return
 
-    base_name = '{:08d}'.format(img_index)
+    base_name = '{:08d}.jpg'.format(img_index)
 
     if not flags.viz:
-        fname = os.path.join(flags.save_dir, base_name + '.jpg')
+        fname = os.path.join(flags.save_dir, base_name)
         cv2.imwrite(fname, im)
 
         label = "{} {}".format(base_name, word)
@@ -130,7 +152,19 @@ def get_num_processes(flags):
     return processes
 
 
+# def read_corpus(fp="./data/corpus/The Hitchhiker's Guide to the Galaxy.txt"):
+#     with open(fp) as f:
+#         lines = f.readlines()
+#         alphabet = ''.join([line.strip() for line in lines])
+#     return alphabet
+
+
 if __name__ == "__main__":
+    # chars = read_corpus()
+    # new_chars = [c for c in chars if c not in INV_ALPH_DICT]
+    # for c in new_chars:
+    #     print(c)
+
     # It seems there are some problems when using opencv in multiprocessing fork way
     # https://github.com/opencv/opencv/issues/5150#issuecomment-161371095
     # https://github.com/pytorch/pytorch/issues/3492#issuecomment-382660636
@@ -140,8 +174,8 @@ if __name__ == "__main__":
     if flags.viz == 1:
         flags.num_processes = 1
 
-    tmp_label_path = os.path.join(flags.save_dir, 'tmp_labels.txt')
-    label_path = os.path.join(flags.save_dir, 'labels.txt')
+    tmp_label_path = os.path.join(flags.save_dir, 'labels.txt')
+    label_path = os.path.join(flags.save_dir, 'tmp_labels.txt')
 
     manager = mp.Manager()
     q = manager.Queue()

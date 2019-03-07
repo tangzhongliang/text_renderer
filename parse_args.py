@@ -16,11 +16,14 @@ def parse_args():
                              'should less then the width of last CNN layer.')
 
     parser.add_argument('--img_height', type=int, default=32)
-    parser.add_argument('--img_width', type=int, default=256,
+    parser.add_argument('--img_width', type=int, default=280,
                         help="If 0, output images will have different width")
 
     parser.add_argument('--chars_file', type=str, default='./data/chars/chn.txt',
                         help='Chars allowed to be appear in generated images.')
+
+    parser.add_argument('--charset_file', type=str, default='./data/label_cn.txt',
+                        help='存储了每个字对应哪个id的关系.')
 
     parser.add_argument('--config_file', type=str, default='./configs/default.yaml',
                         help='Set the parameters when rendering images')

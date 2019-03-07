@@ -12,6 +12,7 @@ pip3 install -r requirements.txt
 ```
 
 # Demo
+
 By default, simply run `python3 main.py` will generate 20 text images
 and a labels.txt file in `output/default/`.
 
@@ -21,7 +22,18 @@ and a labels.txt file in `output/default/`.
 ![example3.jpg](./imgs/example3.jpg)
 ![example4.jpg](./imgs/example4.jpg)
 
+
+
+Or, 
+
+```bash
+python3.6 main.py --config_file configs/default_test.yaml --output_dir output --tag default_test2 --corpus_mode random
+```
+
+
+
 # Use your own data to generate image
+
 1. Please run `python3 main.py --help` to see all optional arguments and their meanings.
 And put your own data in corresponding folder.
 
