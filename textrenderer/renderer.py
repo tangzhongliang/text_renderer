@@ -17,13 +17,14 @@ from textrenderer.remaper import Remaper
 
 
 class Renderer(object):
-    def __init__(self, corpus, fonts, bgs, cfg, width=256, height=32,
+    def __init__(self, corpus, fonts, bgs, cfg, width=256, height=32, space_ratio=0.0,
                  clip_max_chars=False, debug=False, gpu=False, strict=False):
         self.corpus = corpus
         self.fonts = fonts
         self.bgs = bgs
         self.out_width = width
         self.out_height = height
+        self.space_ratio = space_ratio
         self.clip_max_chars = clip_max_chars
         self.max_chars = math.floor(width / 4) - 1
         self.debug = debug
@@ -43,6 +44,14 @@ class Renderer(object):
 
     def gen_img(self, img_index):
         word, font, word_size = self.pick_font(img_index)
+        if self.space_ratio > 0 and len(word) > 2:
+            word = list(word)
+            for i in range(1, len(word) - 1):
+                if word[i-1] != ' ' and random.random() < self.space_ratio:
+                    # 不允许出现连续的空格
+                    word[i] = ' '
+            word = ''.join(word)
+
         self.dmsg("after pick font")
 
         # Background's height should much larger than raw word image's height,

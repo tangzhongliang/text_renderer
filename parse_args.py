@@ -61,6 +61,9 @@ def parse_args():
     parser.add_argument('--num_processes', type=int, default=None,
                         help="Number of processes to generate image. If None, use all cpu cores")
 
+    parser.add_argument('--space_ratio', type=float, default=0.5,
+                        help="the probability that one intermediate character is replace by a space")
+
     flags, _ = parser.parse_known_args()
     flags.save_dir = os.path.join(flags.output_dir, flags.tag)
 

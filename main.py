@@ -23,7 +23,7 @@ from tenacity import retry
 
 
 def read_charset(charset_fp):
-    alphabet = []
+    alphabet = [None]
     # 第0个元素是预留id，在CTC中用来分割字符。它不对应有意义的字符
     with open(charset_fp) as fp:
         for line in fp:
@@ -53,6 +53,7 @@ corpus = corpus_factory(flags.corpus_mode, flags.chars_file, flags.corpus_dir, f
 renderer = Renderer(corpus, fonts, bgs, cfg,
                     height=flags.img_height,
                     width=flags.img_width,
+                    space_ratio=flags.space_ratio,
                     clip_max_chars=flags.clip_max_chars,
                     debug=flags.debug,
                     gpu=flags.gpu,
@@ -94,12 +95,14 @@ def generate_img(img_index, q=None):
     np.random.seed()
 
     im, word = gen_img_retry(renderer, img_index)
+    print(word)
     if INV_ALPH_DICT:
         try:
             word = ' '.join([str(INV_ALPH_DICT[c]) for c in word])
         except KeyError:
             return
 
+    print(word)
     base_name = '{:08d}.jpg'.format(img_index)
 
     if not flags.viz:
@@ -107,6 +110,7 @@ def generate_img(img_index, q=None):
         cv2.imwrite(fname, im)
 
         label = "{} {}".format(base_name, word)
+        print(label)
 
         if q is not None:
             q.put(label)
