@@ -1,12 +1,24 @@
 import os
 import pickle
 import glob
-from itertools import chain
+from pathlib import Path
 
 from fontTools.ttLib import TTCollection, TTFont
 from fontTools.unicode import Unicode
 
 from .utils import md5, load_chars
+
+
+def parse_font_paths(fonts_list):
+    font_paths = fonts_list.split(',')
+    res = []
+    for fp in font_paths:
+        if Path(fp).is_file():
+            res.extend(get_font_paths_from_list(fp))
+        elif Path(fp).is_dir():
+            res.extend(get_font_paths(fp))
+
+    return res
 
 
 def get_font_paths(fonts_dir):
@@ -110,6 +122,7 @@ def get_fonts_chars(fonts, chars_file):
 
         if not os.path.exists(cache_file_path):
             ttf = load_font(font_path)
+            print('xxxx: ', font_path)
             _, supported_chars = check_font_chars(ttf, chars)
             print('Save font(%s) supported chars(%d) to cache' % (font_path, len(supported_chars)))
 

@@ -1,1 +1,3 @@
 ./data/fonts/eng/Hack-Regular.ttf
+./data/fonts/chn/PingFang.ttc
+./data/fonts/chn/msyh.ttf

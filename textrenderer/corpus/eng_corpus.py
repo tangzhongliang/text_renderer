@@ -1,3 +1,5 @@
+import random
+from pathlib import Path
 from textrenderer.corpus.corpus import Corpus
 import numpy as np
 
@@ -6,6 +8,14 @@ class EngCorpus(Corpus):
     """
     Load English corpus by words, and get random {self.length} words as result
     """
+    def load_corpus_path(self):
+        """
+        Load txt file path in corpus_dir
+        """
+        if Path(self.corpus_dir).is_file():
+            self.corpus_path = [self.corpus_dir]
+        else:
+            super().load_corpus_path()
 
     def load(self):
         self.load_corpus_path()
@@ -26,7 +36,6 @@ class EngCorpus(Corpus):
             print("Word count {}".format(len(self.corpus)))
 
     def get_sample(self, img_index):
-        start = np.random.randint(0, len(self.corpus) - self.length)
-        words = self.corpus[start:start + self.length]
-        word = ' '.join(words)
-        return word
+        # start = np.random.randint(0, len(self.corpus) - self.length)
+        words = [random.choice(self.corpus) for _ in range(self.length)]
+        return ' '.join(words)

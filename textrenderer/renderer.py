@@ -18,7 +18,7 @@ from textrenderer.remaper import Remaper
 
 class Renderer(object):
     def __init__(self, corpus, fonts, bgs, cfg, width=256, height=32, space_ratio=0.0,
-                 clip_max_chars=False, debug=False, gpu=False, strict=False):
+                 clip_max_chars=False, max_chars=None, debug=False, gpu=False, strict=False):
         self.corpus = corpus
         self.fonts = fonts
         self.bgs = bgs
@@ -26,7 +26,7 @@ class Renderer(object):
         self.out_height = height
         self.space_ratio = space_ratio
         self.clip_max_chars = clip_max_chars
-        self.max_chars = math.floor(width / 4) - 1
+        self.max_chars = math.floor(width / 4) - 1 if max_chars is None else max_chars
         self.debug = debug
         self.gpu = gpu
         self.strict = strict
@@ -446,7 +446,7 @@ class Renderer(object):
 
         out = self.apply_gauss_blur(out, ks=[7, 11, 13, 15, 17])
 
-        bg_mean = int(np.mean(out))
+        # bg_mean = int(np.mean(out))
 
         # TODO: find a better way to deal with background
         # alpha = 255 / bg_mean  # 对比度
@@ -466,7 +466,7 @@ class Renderer(object):
         word = self.corpus.get_sample(img_index)
 
         if self.clip_max_chars and len(word) > self.max_chars:
-            word = word[:self.max_chars]
+            word = self.clip_chars(word)
 
         font_path = random.choice(self.fonts)
 
@@ -485,6 +485,15 @@ class Renderer(object):
         font = ImageFont.truetype(font_path, font_size)
 
         return word, font, self.get_word_size(font, word)
+
+    def clip_chars(self, word):
+        for _ in range(6):
+            start = random.randint(0, len(word) - self.max_chars)
+            if word[start] != ' ' and word[start + self.max_chars - 1] != ' ':
+                # 保证边上的不是空格字符
+                return word[start: start + self.max_chars]
+
+        raise Exception
 
     def get_word_size(self, font, word):
         """

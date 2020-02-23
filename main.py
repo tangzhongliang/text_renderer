@@ -45,7 +45,7 @@ ALPHABET, INV_ALPH_DICT = None, None
 if flags.charset_file and os.path.exists(flags.charset_file):
     ALPHABET, INV_ALPH_DICT = read_charset(flags.charset_file)
 
-fonts = font_utils.get_font_paths_from_list(flags.fonts_list)
+fonts = font_utils.parse_font_paths(flags.fonts_list)
 bgs = utils.load_bgs(flags.bg_dir)
 
 corpus = corpus_factory(flags.corpus_mode, flags.chars_file, flags.corpus_dir, flags.length)
@@ -55,6 +55,7 @@ renderer = Renderer(corpus, fonts, bgs, cfg,
                     width=flags.img_width,
                     space_ratio=flags.space_ratio,
                     clip_max_chars=flags.clip_max_chars,
+                    max_chars=flags.length,
                     debug=flags.debug,
                     gpu=flags.gpu,
                     strict=flags.strict)
@@ -95,14 +96,14 @@ def generate_img(img_index, q=None):
     np.random.seed()
 
     im, word = gen_img_retry(renderer, img_index)
-    print(word)
+    # print(word)
     if INV_ALPH_DICT:
         try:
             word = ' '.join([str(INV_ALPH_DICT[c]) for c in word])
         except KeyError:
             return
 
-    print(word)
+    # print(word)
     base_name = '{:08d}.jpg'.format(img_index)
 
     if not flags.viz:
@@ -110,7 +111,7 @@ def generate_img(img_index, q=None):
         cv2.imwrite(fname, im)
 
         label = "{} {}".format(base_name, word)
-        print(label)
+        # print(label)
 
         if q is not None:
             q.put(label)
