@@ -5,7 +5,7 @@ __pycache__/
 .DS_Store
 
 data/fonts/
-data/corpus/**
+!data/corpus/**
 data/bg/
 
 # For example
