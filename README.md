@@ -13,6 +13,10 @@ pip3 install -r requirements.txt
 
 # Demo
 
+Follow [Makefile](./Makefile) for generations of Chinese or English samples.
+
+---
+ 
 By default, simply run `python3 main.py` will generate 20 text images
 and a labels.txt file in `output/default/`.
 
@@ -21,7 +25,6 @@ and a labels.txt file in `output/default/`.
 
 ![example3.jpg](./imgs/example3.jpg)
 ![example4.jpg](./imgs/example4.jpg)
-
 
 
 Or, 
