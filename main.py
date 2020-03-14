@@ -110,7 +110,7 @@ def generate_img(img_index, q=None):
         fname = os.path.join(flags.save_dir, base_name)
         cv2.imwrite(fname, im)
 
-        label = "{} {}".format(base_name, word)
+        label = "{}/{} {}".format(flags.tag, base_name, word)
         # print(label)
 
         if q is not None:
@@ -136,7 +136,7 @@ def sort_labels(tmp_label_fname, label_fname):
     lines = sorted(lines)
     with open(label_fname, mode='w', encoding='utf-8') as f:
         for line in lines:
-            f.write(line[9:])
+            f.write(line)
 
 
 def restore_exist_labels(label_path):
@@ -180,12 +180,12 @@ if __name__ == "__main__":
         flags.num_processes = 1
 
     tmp_label_path = os.path.join(flags.save_dir, 'labels.txt')
-    label_path = os.path.join(flags.save_dir, 'tmp_labels.txt')
+    # label_path = os.path.join(flags.save_dir, 'tmp_labels.txt')
 
     manager = mp.Manager()
     q = manager.Queue()
 
-    start_index = restore_exist_labels(label_path)
+    start_index = restore_exist_labels(tmp_label_path)
 
     timer = Timer(Timer.SECOND)
     timer.start()
@@ -201,4 +201,4 @@ if __name__ == "__main__":
     timer.end("Finish generate data")
 
     if not flags.viz:
-        sort_labels(tmp_label_path, label_path)
+        sort_labels(tmp_label_path, tmp_label_path)
