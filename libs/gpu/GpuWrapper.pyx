@@ -13,7 +13,6 @@ def cudaWarpPerspectiveWrapper(np.ndarray[np.uint8_t, ndim=2] _src,
     cdef GpuMat src_gpu
     pyopencv_to(<PyObject*> _src, src_mat)
     src_gpu.upload(src_mat)
-
     # Create CPU/host InputArray for M
     cdef Mat M_mat = Mat()
     pyopencv_to(<PyObject*> _M, M_mat)
