@@ -12,6 +12,7 @@ from textrenderer.liner import Liner
 from textrenderer.noiser import Noiser
 import libs.font_utils as font_utils
 
+
 # noinspection PyMethodMayBeStatic
 from textrenderer.remaper import Remaper
 
@@ -42,8 +43,21 @@ class Renderer(object):
         if self.strict:
             self.font_unsupport_chars = font_utils.get_unsupported_chars(self.fonts, corpus.chars_file)
 
-    def gen_img(self, img_index):
-        word, font, word_size = self.pick_font(img_index)
+    def gen_img(self, img_index, inv_alph_dict):
+        # not blur image, like real image
+        is_pass = random.random() < 0.2
+        while True:
+            # check word is valid
+            # limit font size to avoid to scale word img
+            word, font, word_size = self.pick_font(img_index, 25 if is_pass else None)
+            # delete invalid word
+            invalid = False
+            for c in word:
+                if c not in inv_alph_dict:
+                    invalid = True
+                    break
+            if not invalid:
+                break
         if self.space_ratio > 0 and len(word) > 2:
             word = list(word)
             for i in range(1, len(word) - 1):
@@ -57,10 +71,9 @@ class Renderer(object):
         # Background's height should much larger than raw word image's height,
         # to make sure we can crop full word image after apply perspective
         bg = self.gen_bg(width=word_size[0] * 8, height=word_size[1] * 8)
-        word_img, text_box_pnts, word_color = self.draw_text_on_bg(word, font, bg)
+        word_img, text_box_pnts, word_color = self.draw_text_on_bg(word, font, bg, is_pass)
         self.dmsg("After draw_text_on_bg")
-
-        if apply(self.cfg.crop):
+        if not is_pass and apply(self.cfg.crop):
             text_box_pnts = self.apply_crop(text_box_pnts, self.cfg.crop)
 
         if apply(self.cfg.line):
@@ -76,13 +89,23 @@ class Renderer(object):
 
         if self.debug:
             word_img = draw_box(word_img, text_box_pnts, (155, 255, 0))
-
-        word_img, img_pnts_transformed, text_box_pnts_transformed = \
-            self.apply_perspective_transform(word_img, text_box_pnts,
-                                             max_x=self.cfg.perspective_transform.max_x,
-                                             max_y=self.cfg.perspective_transform.max_y,
-                                             max_z=self.cfg.perspective_transform.max_z,
+        if is_pass:
+            # avoid to rotation img
+            # the font size is 25
+            word_img, img_pnts_transformed, text_box_pnts_transformed = \
+                self.apply_perspective_transform(word_img, text_box_pnts,
+                                             max_x=0.01,
+                                             max_y=0.01,
+                                             max_z=0.01,
                                              gpu=self.gpu)
+
+        else:
+            word_img, img_pnts_transformed, text_box_pnts_transformed = \
+                self.apply_perspective_transform(word_img, text_box_pnts,
+                                                 max_x=self.cfg.perspective_transform.max_x,
+                                                 max_y=self.cfg.perspective_transform.max_y,
+                                                 max_z=self.cfg.perspective_transform.max_z,
+                                                 gpu=self.gpu)
 
         self.dmsg("After perspective transform")
 
@@ -91,7 +114,6 @@ class Renderer(object):
             word_img = draw_bbox(word_img, crop_bbox, (255, 0, 0))
         else:
             word_img, crop_bbox = self.crop_img(word_img, text_box_pnts_transformed)
-
         self.dmsg("After crop_img")
 
         if apply(self.cfg.noise):
@@ -100,31 +122,33 @@ class Renderer(object):
             self.dmsg("After noiser")
 
         blured = False
-        if apply(self.cfg.blur):
-            blured = True
-            word_img = self.apply_blur_on_output(word_img)
-            self.dmsg("After blur")
+        if not is_pass:
+            if apply(self.cfg.blur):
+                blured = True
+                word_img = self.apply_blur_on_output(word_img)
+                self.dmsg("After blur")
 
-        if not blured:
-            if apply(self.cfg.prydown):
-                word_img = self.apply_prydown(word_img)
+            if not blured:
+                if apply(self.cfg.prydown):
+                    word_img = self.apply_prydown(word_img)
                 self.dmsg("After prydown")
 
         word_img = np.clip(word_img, 0., 255.)
 
-        if apply(self.cfg.reverse_color):
+        if not is_pass and apply(self.cfg.reverse_color):
             word_img = self.reverse_img(word_img)
             self.dmsg("After reverse_img")
 
-        if apply(self.cfg.emboss):
+        if not is_pass and  apply(self.cfg.emboss):
             word_img = self.apply_emboss(word_img)
             self.dmsg("After emboss")
 
-        if apply(self.cfg.sharp):
+        if not is_pass and  apply(self.cfg.sharp):
             word_img = self.apply_sharp(word_img)
             self.dmsg("After sharp")
 
         # word_img = cv2.resize(word_img, None, fx=0.5, fy=0.5)
+        word_img = word_img.astype(np.uint8)
         return word_img, word
 
     def dmsg(self, msg):
@@ -230,12 +254,13 @@ class Renderer(object):
         word_color = random.randint(0, bg_mean)
         return word_color
 
-    def draw_text_on_bg(self, word, font, bg):
+    def draw_text_on_bg(self, word, font, bg, is_pass=False):
         """
         Draw word in the center of background
         :param word: word to draw
         :param font: font to draw word
         :param bg: background numpy image
+        :param is_pass: not blur image
         :return:
             np_img: word image
             text_box_pnts: left-top, right-top, right-bottom, left-bottom
@@ -263,10 +288,12 @@ class Renderer(object):
                                                                                        bg_width, bg_height)
             np_img = np.array(pil_img).astype(np.float32)
         else:
-            if apply(self.cfg.seamless_clone):
+            if not is_pass and apply(self.cfg.seamless_clone):
                 np_img = self.draw_text_seamless(font, bg, word, word_color, word_height, word_width, offset)
+                self.dmsg('After seamless_clone')
             else:
                 self.draw_text_wrapper(draw, word, text_x - offset[0], text_y - offset[1], font, word_color)
+                self.dmsg('After draw_text_wrapper')
                 # draw.text((text_x - offset[0], text_y - offset[1]), word, fill=word_color, font=font)
 
                 np_img = np.array(pil_img).astype(np.float32)
@@ -288,7 +315,7 @@ class Renderer(object):
         white_bg = np.ones((word_height + seamless_offset, word_width + seamless_offset)) * 255
         text_img = Image.fromarray(np.uint8(white_bg))
         draw = ImageDraw.Draw(text_img)
-
+        
         # draw.text((0 + seamless_offset // 2, 0 - offset[1] + seamless_offset // 2), word,
         #           fill=word_color, font=font)
 
@@ -369,7 +396,6 @@ class Renderer(object):
             self.draw_border_text(draw, text, x, y, font, text_color)
         else:
             draw.text((x, y), text, fill=text_color, font=font)
-
     def draw_border_text(self, draw, text, x, y, font, text_color):
         """
         :param x/y: 应该是移除了 offset 的
@@ -456,32 +482,46 @@ class Renderer(object):
         return out
 
     @retry
-    def pick_font(self, img_index):
+    def pick_font(self, img_index, default_font_size=None):
         """
         :param img_index when use list corpus, this param is used
         :return:
             font: truetype
             size: word size, removed offset (width, height)
         """
+        fail = False
         word = self.corpus.get_sample(img_index)
 
         if self.clip_max_chars and len(word) > self.max_chars:
             word = self.clip_chars(word)
+        count = 0 
+        while count < 10:
+            try:
+                font_path = random.choice(self.fonts)
 
-        font_path = random.choice(self.fonts)
-
-        if self.strict:
-            unsupport_chars = self.font_unsupport_chars[font_path]
-            for c in word:
-                if c == ' ':
-                    continue
-                if c in unsupport_chars:
-                    print('Retry pick_font(), \'%s\' contains chars \'%s\' not supported by font %s' % (
-                        word, c, font_path))
-                    raise Exception
+                if self.strict:
+                    unsupport_chars = self.font_unsupport_chars[font_path]
+                    for c in word:
+                        if c == ' ':
+                            continue
+                        if c in unsupport_chars:
+                            print('Retry choice_font(), \'%s\' contains chars \'%s\' not supported by font %s' % (
+                                word, c, font_path))
+                            raise Exception
+            except:
+                count += 1
+                continue
+            break
+        if count >= 10:
+            print('Retry pick_font(), \'%s\' contains chars \'%s\' not supported by font %s' % (
+                            word, c, font_path))
+            raise Exception
 
         # Font size in point
-        font_size = random.randint(self.cfg.font_size.min, self.cfg.font_size.max)
+        if default_font_size is None:
+            font_size = random.randint(self.cfg.font_size.min, self.cfg.font_size.max)
+        else:
+            font_size = default_font_size
         font = ImageFont.truetype(font_path, font_size)
 
         return word, font, self.get_word_size(font, word)
@@ -620,3 +660,121 @@ class Renderer(object):
             croped_text_box_pnts[3][1] -= bottom_crop
 
         return croped_text_box_pnts
+
+from libs.config import load_config
+import sys
+class MyRender(object):
+    def __init__(self, cfg_file='/root/tzl/text_renderer/configs/default_test.yaml'):
+        """
+        handle exist image
+        """
+        self.debug = True
+        cfg = load_config(cfg_file)
+        self.cfg = cfg
+        self.liner = Liner(cfg)
+        self.noiser = Noiser(cfg)
+        self.remaper = Remaper(cfg)
+        self.create_kernals()
+
+    def gen_img(self, word_img):
+        #if apply(self.cfg.noise):
+        #    word_img = np.clip(word_img, 0., 255.)
+        #    word_img = self.noiser.apply(word_img)
+
+        blured = False
+        if apply(self.cfg.blur):
+            blured = True
+            word_img = self.apply_blur_on_output(word_img)
+            self.dmsg('After blur')
+        if not blured:
+            if apply(self.cfg.prydown):
+                word_img = self.apply_prydown(word_img)
+                self.dmsg('After prydown1')
+            else:
+                word_img = self.apply_prydown(word_img)
+                self.dmsg('After prydown2')
+        word_img = np.clip(word_img, 0., 255.)
+        #if apply(self.cfg.reverse_color):
+        #    word_img = self.reverse_img(word_img)
+        #    self.dmsg('After reverse_color')
+        #if apply(self.cfg.emboss):
+        #    word_img = self.apply_emboss(word_img)
+        #    self.dmsg('After emboss')
+
+        #if apply(self.cfg.sharp):
+        #    word_img = self.apply_sharp(word_img)
+        #    self.dmsg('After sharp')
+        word_img = np.clip(word_img, 0., 255.)
+        word_img = word_img.astype(np.uint8)
+        return word_img
+
+    def apply_blur_on_output(self, img):
+        if prob(0.5):
+            return self.apply_gauss_blur(img, [3, 5])
+        else:
+            return self.apply_norm_blur(img)
+
+    def apply_gauss_blur(self, img, ks=None):
+        if ks is None:
+            ks = [7, 9, 11, 13]
+        ksize = random.choice(ks)
+
+        sigmas = [0, 1, 2, 3, 4, 5, 6, 7]
+        sigma = 0
+        if ksize <= 3:
+            sigma = random.choice(sigmas)
+        img = cv2.GaussianBlur(img, (ksize, ksize), sigma)
+        return img
+
+    def apply_norm_blur(self, img, ks=None):
+        # kernel == 1, the output image will be the same
+        if ks is None:
+            ks = [2, 3]
+        kernel = random.choice(ks)
+        img = cv2.blur(img, (kernel, kernel))
+        return img
+    def dmsg(self, msg):
+        if self.debug:
+            print(msg)
+    def apply_prydown(self, img):
+        """
+        模糊图像，模拟小图片放大的效果
+        """
+        scale = random.uniform(2, self.cfg.prydown.max_scale)
+        scale = 2
+        height = img.shape[0]
+        width = img.shape[1]
+
+        out = cv2.resize(img, (int(width / scale), int(height / scale)), interpolation=cv2.INTER_AREA)
+        return cv2.resize(out, (width, height), interpolation=cv2.INTER_AREA)
+
+    def reverse_img(self, word_img):
+        offset = np.random.randint(-10, 10)
+        return 255 + offset - word_img
+
+    def create_kernals(self):
+        self.emboss_kernal = np.array([
+            [-2, -1, 0],
+            [-1, 1, 1],
+            [0, 1, 2]
+        ])
+
+        self.sharp_kernel = np.array([
+            [-1, -1, -1],
+            [-1, 9, -1],
+            [-1, -1, -1]
+        ])
+
+    def apply_emboss(self, word_img):
+        return cv2.filter2D(word_img, -1, self.emboss_kernal)
+
+    def apply_sharp(self, word_img):
+        return cv2.filter2D(word_img, -1, self.sharp_kernel)
+    
+if __name__ == '__main__':
+    render = MyRender()
+    img = cv2.imread(sys.argv[1])
+    img2 = render.gen_img(img)
+    cv2.imshow('org', img)
+    cv2.imshow('gen', img2)
+    cv2.waitKey()

@@ -81,26 +81,26 @@ def start_listen(q, fname):
 
 
 @retry
-def gen_img_retry(renderer, img_index):
+def gen_img_retry(renderer, img_index,inv_alph_dict=None):
     try:
-        return renderer.gen_img(img_index)
+        return renderer.gen_img(img_index, inv_alph_dict)
     except Exception as e:
         print("Retry gen_img: %s" % str(e))
         traceback.print_exc()
         raise Exception
-
 
 def generate_img(img_index, q=None):
     global flags, lock, counter, INV_ALPH_DICT
     # Make sure different process has different random seed
     np.random.seed()
 
-    im, word = gen_img_retry(renderer, img_index)
+    im, word = gen_img_retry(renderer, img_index, INV_ALPH_DICT)
     # print(word)
     if INV_ALPH_DICT:
         try:
             word = ' '.join([str(INV_ALPH_DICT[c]) for c in word])
         except KeyError:
+            print('KeyError_...', img_index)
             return
 
     # print(word)

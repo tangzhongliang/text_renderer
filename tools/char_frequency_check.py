@@ -6,14 +6,19 @@ from collections import defaultdict
 import numpy as np
 import matplotlib.pyplot as plt
 
-
+is_encoded = True
 def analyze_labels(path: str):
     char_count_dict = defaultdict(int)
 
     with open(path, mode='r', encoding='utf-8') as f:
         data = f.readlines()
         # 移除换行符、首尾空格
+        #if is_encoded:
+        #    for line in data:
+        #        arr = line.split(' ')
+                
         data = map(lambda l: l[:-1].strip(), data)
+         
         data = ''.join(data)
         total_chars_count = len(data)
 
